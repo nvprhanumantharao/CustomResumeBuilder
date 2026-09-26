@@ -32,6 +32,10 @@ OPENAI_MODEL=gpt-4o-mini
 
 If the key is missing or a model call fails, the same flow continues on the heuristic path.
 
+## Architecture
+
+The product architecture is in [docs/architecture.md](docs/architecture.md). The original one-page design is [docs/AI-Powered-Custom-Resume-Builder.pdf](docs/AI-Powered-Custom-Resume-Builder.pdf).
+
 ## Flow
 
 1. **Profile.** PDF, DOCX, pasted text, or the built-in sample. Correct the profile before generating.

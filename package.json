@@ -7,7 +7,10 @@
     "build": "next build",
     "start": "next start -H 0.0.0.0 -p 3847",
     "lint": "eslint",
-    "test": "tsx --test lib/pipeline.test.ts"
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "node --import tsx --test --test-concurrency=1 --experimental-test-module-mocks \"lib/**/*.test.ts\"",
+    "test:coverage": "node --import tsx --test --test-concurrency=1 --experimental-test-module-mocks --experimental-test-coverage --test-coverage-lines=90 --test-coverage-branches=90 --test-coverage-functions=90 --test-coverage-include=lib/**/*.ts --test-coverage-include=lib/**/*.tsx --test-coverage-include=app/api/**/*.ts --test-coverage-exclude=**/*.test.ts --test-coverage-exclude=lib/resume/pdf-document.tsx --test-coverage-exclude=lib/resume/render-pdf.tsx --test-coverage-exclude=node_modules/** \"lib/**/*.test.ts\""
   },
   "dependencies": {
     "@ai-sdk/openai": "^4.0.74",
@@ -34,6 +37,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.3.6",
+    "prettier": "^3.9.9",
     "tailwindcss": "^4",
     "tsx": "^4.23.15",
     "typescript": "^5"
