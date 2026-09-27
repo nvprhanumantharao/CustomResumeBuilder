@@ -21,6 +21,7 @@ import {
   sampleResumeText,
 } from "./profile/sample";
 import { fitResume, estimateLines, MAX_RESUME_LINES } from "./resume/budget";
+import { scoreAts } from "./resume/ats";
 import { generateResume } from "./resume/generate";
 import { accomplishmentXyz } from "./resume/xyz";
 import { resumeBodyLines, resumeBodyText } from "./resume/plain";
@@ -727,6 +728,37 @@ describe("validation", () => {
       cleaned.education.some((item) => item.school === "Other University"),
       false,
     );
+  });
+});
+
+describe("ATS score", () => {
+  it("scores skills that appear in the resume text and flags the ones that do not", () => {
+    const analysis = analysisOf(sampleJobDescription);
+    const resume = generateResume(sampleProfile, analysis, matchProfile(sampleProfile, analysis), null);
+    const ats = resume.ats ?? scoreAts(resume, analysis);
+    assert.ok(ats.score > 0 && ats.score <= 100);
+    assert.equal(ats.hardSkills.hits.find((hit) => hit.term === "TypeScript")?.found, true);
+    assert.equal(ats.hardSkills.hits.find((hit) => hit.term === "Kubernetes")?.found, false);
+    assert.equal(ats.hardSkills.hits.find((hit) => hit.term === "Go")?.found, false);
+    assert.equal(ats.parse.passed, ats.parse.total);
+    assert.ok(ats.measurable.withMetrics > 0);
+    assert.match(ats.title.detail, /Partial title match/);
+  });
+
+  it("lowers the score when the submitted resume is missing parser fields", () => {
+    const analysis = analysisOf(sampleJobDescription);
+    const full = generateResume(sampleProfile, analysis, matchProfile(sampleProfile, analysis), null);
+    const bare = scoreAts(
+      emptyResume({
+        name: "Maya Chen",
+        summary: { text: "Engineer.", evidenceIds: [] },
+      }),
+      analysis,
+    );
+    assert.ok(full.ats);
+    assert.ok(bare.score < full.ats.score);
+    assert.equal(bare.parse.checks.find((check) => check.label === "Email")?.passed, false);
+    assert.equal(bare.hardSkills.matched, 0);
   });
 });
 

@@ -32,6 +32,20 @@ OPENAI_MODEL=gpt-4o-mini
 
 If the key is missing or a model call fails, the same flow continues on the heuristic path.
 
+## Technologies
+
+| Area | Technology |
+| --- | --- |
+| App | Next.js 16, React 19 |
+| Language | TypeScript |
+| Styling | Tailwind CSS 4 |
+| Model | OpenAI through the Vercel AI SDK (`gpt-4o-mini` by default) |
+| Structured output | Zod |
+| Resume import | unpdf for PDF, mammoth for DOCX |
+| Export | `@react-pdf/renderer` for PDF, `docx` for DOCX |
+| Draft storage | Browser `localStorage` |
+| Tests | Node.js test runner via `tsx` |
+
 ## Architecture
 
 The product architecture is in [docs/architecture.md](docs/architecture.md). The original one-page design is [docs/AI-Powered-Custom-Resume-Builder.pdf](docs/AI-Powered-Custom-Resume-Builder.pdf).

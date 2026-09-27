@@ -33,14 +33,54 @@ async function readError(response: Response): Promise<string> {
   return payload?.error || "The request failed.";
 }
 
-function coverageLine(
-  coverage: { matched: number; total: number } | undefined,
-  label: string,
-  bar: string,
-): string {
-  if (!coverage || coverage.total === 0) return `${label}: none listed`;
-  const percent = Math.round((100 * coverage.matched) / coverage.total);
-  return `${label} ${coverage.matched} of ${coverage.total} (${percent}%, bar ${bar})`;
+function ScoreExplanation({ match }: { match: MatchResult }) {
+  if (!match.required || !match.preferred) {
+    return (
+      <p className="mt-3 text-sm text-muted-foreground" data-testid="score-reasons">
+        Analyze the job again to see why this score was given.
+      </p>
+    );
+  }
+
+  const { required, preferred } = match;
+  const denominator = required.total * 2 + preferred.total;
+  const numerator = required.matched * 2 + preferred.matched;
+  const headline =
+    denominator === 0
+      ? "No required or preferred skills were found, so the score is 0."
+      : numerator === 0
+        ? "None of the job skills are in your profile, so the score is 0."
+        : `${required.matched} required and ${preferred.matched} preferred matched.`;
+  const bar =
+    denominator === 0
+      ? "Responsibilities and keywords are not counted."
+      : match.qualified
+        ? "Clears the bar."
+        : "Below the bar.";
+
+  return (
+    <div className="mt-4 grid gap-3" data-testid="score-reasons">
+      <p className="text-sm">{headline}</p>
+      <dl className="grid gap-2 sm:grid-cols-2">
+        <div className="rounded-lg bg-muted/60 px-3 py-2">
+          <dt className="text-xs tracking-wide text-muted-foreground uppercase">Required</dt>
+          <dd className="text-sm">{required.total === 0 ? "None listed" : `${required.matched} of ${required.total}`}</dd>
+          <dd className="text-xs text-muted-foreground">Need above 50%</dd>
+        </div>
+        <div className="rounded-lg bg-muted/60 px-3 py-2">
+          <dt className="text-xs tracking-wide text-muted-foreground uppercase">Preferred</dt>
+          <dd className="text-sm">{preferred.total === 0 ? "None listed" : `${preferred.matched} of ${preferred.total}`}</dd>
+          <dd className="text-xs text-muted-foreground">Need at least 25%</dd>
+        </div>
+      </dl>
+      {denominator > 0 ? (
+        <p className="text-sm text-muted-foreground">
+          Required counts double. ({required.matched}×2 + {preferred.matched}) / ({required.total}×2 + {preferred.total}) = {match.score}.
+        </p>
+      ) : null}
+      <p className="text-sm text-muted-foreground">{bar}</p>
+    </div>
+  );
 }
 
 export function Builder() {
@@ -601,30 +641,24 @@ export function Builder() {
                 </div>
               ) : (
                 <>
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                  <div className="grid gap-4">
                     <div>
                       <p className="text-xs tracking-wide text-muted-foreground uppercase">Match score</p>
                       <p className="font-serif text-5xl tracking-tight">{match.score}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {coverageLine(match.required, "Required", "above 50%")}
-                        {" · "}
-                        {coverageLine(match.preferred, "Preferred", "at least 25%")}
-                      </p>
-                      {match.required && match.preferred ? (
-                        <p className="mt-1 text-sm text-muted-foreground">
-                          {match.qualified
-                            ? "Clears the bar: more than half of required qualifications and at least a quarter of preferred qualifications."
-                            : "Below the bar. Required qualifications need more than half matched, and preferred qualifications need at least a quarter matched."}
-                        </p>
-                      ) : null}
+                      <ScoreExplanation match={match} />
                     </div>
-                    <div className="flex flex-wrap gap-2">
-                      {analysis.requiredSkills.map((skill) => (
-                        <Badge key={skill} variant={match.gaps.some((gap) => gap.requirement === skill) ? "outline" : "secondary"}>
-                          {skill}
-                        </Badge>
-                      ))}
-                    </div>
+                    {analysis.requiredSkills.length > 0 ? (
+                      <div className="flex flex-wrap gap-2">
+                        {analysis.requiredSkills.map((skill) => (
+                          <Badge
+                            key={skill}
+                            variant={match.gaps.some((gap) => gap.requirement === skill) ? "outline" : "secondary"}
+                          >
+                            {skill}
+                          </Badge>
+                        ))}
+                      </div>
+                    ) : null}
                   </div>
                   <Separator />
                   <div className="grid gap-5 lg:grid-cols-2">
@@ -747,6 +781,69 @@ export function Builder() {
                   <ResumePreview resume={resume} />
                 </div>
                 <aside className="grid gap-4">
+                  <Card size="sm" data-testid="ats-score">
+                    <CardHeader>
+                      <CardTitle>ATS score</CardTitle>
+                      <CardDescription>
+                        Scored from the resume text a scanner reads, the same way Jobscan and Teal
+                        compare a file with the posting.
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="grid gap-3">
+                      {resume.ats ? (
+                        <>
+                          <p className="font-serif text-5xl tracking-tight">{resume.ats.score}</p>
+                          <ul className="grid gap-1 text-sm text-muted-foreground">
+                            <li>
+                              Hard skills {resume.ats.hardSkills.matched} of {resume.ats.hardSkills.total} in
+                              the resume
+                            </li>
+                            {resume.ats.keywords.total > 0 ? (
+                              <li>
+                                Other tools {resume.ats.keywords.matched} of {resume.ats.keywords.total}
+                              </li>
+                            ) : null}
+                            <li>{resume.ats.title.detail}</li>
+                            <li>
+                              Parse checks {resume.ats.parse.passed} of {resume.ats.parse.total}
+                            </li>
+                            <li>
+                              Measurable bullets {resume.ats.measurable.withMetrics} of{" "}
+                              {resume.ats.measurable.bullets}
+                            </li>
+                          </ul>
+                          {resume.ats.hardSkills.hits.some((hit) => !hit.found) ? (
+                            <div className="flex flex-wrap gap-2">
+                              {resume.ats.hardSkills.hits
+                                .filter((hit) => !hit.found)
+                                .map((hit) => (
+                                  <Badge key={`${hit.kind}-${hit.term}`} variant="outline">
+                                    Missing {hit.term}
+                                  </Badge>
+                                ))}
+                            </div>
+                          ) : (
+                            <p className="text-sm text-muted-foreground">
+                              Every required and preferred skill in the posting appears in the resume.
+                            </p>
+                          )}
+                          <ul className="grid gap-1 text-sm">
+                            {resume.ats.parse.checks
+                              .filter((check) => !check.passed)
+                              .map((check) => (
+                                <li key={check.label} className="text-muted-foreground">
+                                  {check.detail}
+                                </li>
+                              ))}
+                          </ul>
+                        </>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">
+                          Build the resume again to score the text an ATS would read.
+                        </p>
+                      )}
+                    </CardContent>
+                  </Card>
                   <Card size="sm">
                     <CardHeader>
                       <CardTitle>Fact check</CardTitle>

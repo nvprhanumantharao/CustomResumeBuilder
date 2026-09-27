@@ -11,6 +11,7 @@ import {
 import type { CareerProfile, Skill } from "../profile/types";
 import { CONTACT_ID, SUMMARY_ID } from "../profile/types";
 import { clipSentences, sameTerm, termMentioned } from "../text";
+import { scoreAts } from "./ats";
 import { fitResume } from "./budget";
 import { accomplishmentXyz } from "./xyz";
 import type { GeneratorMode, ResumeDocument, ResumeEducation, ResumeRole, RewriteDraft } from "./types";
@@ -254,5 +255,6 @@ export function generateResume(
     mode,
   };
 
-  return fitResume(draft);
+  const fitted = fitResume(draft);
+  return { ...fitted, ats: scoreAts(fitted, analysis) };
 }

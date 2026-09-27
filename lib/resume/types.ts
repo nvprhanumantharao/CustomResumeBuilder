@@ -1,4 +1,5 @@
 import type { JdGap } from "../jd/types";
+import type { AtsReport } from "./ats";
 
 export interface CitedText {
   text: string;
@@ -48,6 +49,8 @@ export interface ResumeDocument {
   lineEstimate: number;
   trimmedBullets: number;
   mode: GeneratorMode;
+  /** Present after generation. Older saved drafts may omit it. */
+  ats?: AtsReport;
 }
 
 export interface RewriteBullet {
