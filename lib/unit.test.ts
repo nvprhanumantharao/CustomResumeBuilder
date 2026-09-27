@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { analyzeJobHeuristic } from "./jd/analyze";
 import { sampleJobDescription } from "./jd/sample";
-import { matchProfile, scoreFor } from "./match/score";
+import { matchProfile, preferredClearsBar, requiredClearsBar, scoreFor } from "./match/score";
 import {
   collectEvidence,
   contactLine,
@@ -20,8 +20,9 @@ import {
   sampleProfile,
   sampleResumeText,
 } from "./profile/sample";
-import { fitResume, estimateLines } from "./resume/budget";
+import { fitResume, estimateLines, MAX_RESUME_LINES } from "./resume/budget";
 import { generateResume } from "./resume/generate";
+import { accomplishmentXyz } from "./resume/xyz";
 import { resumeBodyLines, resumeBodyText } from "./resume/plain";
 import type { ResumeDocument } from "./resume/types";
 import {
@@ -273,6 +274,48 @@ describe("matching", () => {
     assert.ok(scoreFor(match, "ach-nw-latency") > 0);
     assert.equal(scoreFor(match, "missing"), 0);
     assert.ok(match.evidence[0]!.score >= match.evidence.at(-1)!.score);
+    assert.equal(match.required.matched, 3);
+    assert.equal(match.required.total, 5);
+    assert.equal(match.preferred.matched, 1);
+    assert.equal(match.preferred.total, 3);
+    assert.equal(match.qualified, true);
+  });
+
+  it("qualifies only when required coverage is above 50% and preferred coverage is at least 25%", () => {
+    const base = {
+      title: "Engineer",
+      seniority: "",
+      domain: "",
+      responsibilities: [],
+      keywords: [],
+    };
+    const halfRequired = matchProfile(sampleProfile, {
+      ...base,
+      requiredSkills: ["TypeScript", "Node.js", "Go", "Kubernetes"],
+      preferredSkills: ["React", "Kafka", "Terraform", "Spark"],
+    });
+    assert.equal(halfRequired.required.matched, 2);
+    assert.equal(halfRequired.required.total, 4);
+    assert.equal(requiredClearsBar(halfRequired.required), false);
+    assert.equal(preferredClearsBar(halfRequired.preferred), true);
+    assert.equal(halfRequired.qualified, false);
+
+    const lowPreferred = matchProfile(sampleProfile, {
+      ...base,
+      requiredSkills: ["TypeScript", "Node.js", "PostgreSQL"],
+      preferredSkills: ["Kafka", "Terraform", "Spark", "Airflow"],
+    });
+    assert.equal(lowPreferred.preferred.matched, 0);
+    assert.equal(lowPreferred.qualified, false);
+
+    const clears = matchProfile(sampleProfile, {
+      ...base,
+      requiredSkills: ["TypeScript", "Node.js", "PostgreSQL", "Go"],
+      preferredSkills: ["React", "Kafka", "Terraform", "Spark"],
+    });
+    assert.equal(clears.required.matched, 3);
+    assert.equal(clears.preferred.matched, 1);
+    assert.equal(clears.qualified, true);
   });
 
   it("returns zero when the posting has no skills and flags unsupported duties", () => {
@@ -281,6 +324,7 @@ describe("matching", () => {
     );
     const match = matchProfile(sampleProfile, analysis);
     assert.equal(match.score, 0);
+    assert.equal(match.qualified, false);
     assert.ok(match.gaps.length >= 1);
   });
 
@@ -296,7 +340,7 @@ describe("matching", () => {
   });
 });
 
-describe("evidence and one-page budget", () => {
+describe("evidence and two-page budget", () => {
   it("collects contact, jobs, certs, and projects", () => {
     assert.ok(contactQuote(sampleProfile).includes("Maya Chen"));
     assert.ok(contactLine(sampleProfile).includes("maya.chen@example.com"));
@@ -360,7 +404,7 @@ describe("evidence and one-page budget", () => {
   });
 
   it("drops the lowest bullets, then extra skills, then shortens the summary", () => {
-    const bullets = Array.from({ length: 16 }, (_, index) => ({
+    const bullets = Array.from({ length: 40 }, (_, index) => ({
       text: `Bullet ${index} ${"detail ".repeat(40)}`,
       evidenceIds: ["ach"],
       score: index === 3 ? 0 : 5,
@@ -407,11 +451,11 @@ describe("evidence and one-page budget", () => {
     );
     assert.ok(fitted.trimmedBullets > 0);
     assert.ok(fitted.skills.length <= 8);
-    assert.ok(fitted.lineEstimate <= 40 || fitted.summary.text.length <= 180);
+    assert.ok(fitted.lineEstimate <= MAX_RESUME_LINES || fitted.summary.text.length <= 180);
     assert.ok(estimateLines(fitted) === fitted.lineEstimate);
   });
 
-  it("stops once nothing else can be removed", () => {
+  it("keeps roles and skills that still fit on two pages", () => {
     const roles = Array.from({ length: 22 }, (_, index) => ({
       employer: `Employer ${index}`,
       title: "Engineer",
@@ -431,9 +475,39 @@ describe("evidence and one-page budget", () => {
       }),
     );
     assert.equal(fitted.trimmedBullets, 0);
-    assert.equal(fitted.skills.length, 6);
-    assert.ok(fitted.summary.text.length <= 180);
-    assert.ok(fitted.lineEstimate > 40);
+    assert.equal(fitted.skills.length, 8);
+    assert.ok(fitted.summary.text.length > 180);
+    assert.ok(fitted.lineEstimate <= MAX_RESUME_LINES);
+  });
+
+  it("writes accomplishments with the XYZ formula", () => {
+    const latency = accomplishmentXyz(
+      "Cut API p95 latency from 480ms to 190ms by rewriting the Node.js request pipeline and adding PostgreSQL indexes.",
+    );
+    assert.match(latency, /^Accomplished /);
+    assert.match(latency, /as measured by 480ms to 190ms/);
+    assert.match(latency, /by doing rewriting the Node\.js request pipeline/);
+    assert.doesNotMatch(latency, /999/);
+
+    const squads = accomplishmentXyz(
+      "Shipped a React and TypeScript design system used by 4 product squads.",
+    );
+    assert.match(squads, /as measured by 4 product squads/);
+
+    const records = accomplishmentXyz(
+      "Built a Python data quality checker that flagged 1,200 bad records a week before they reached finance.",
+    );
+    assert.match(records, /as measured by 1,200 bad records a week/);
+    assert.match(records, /bad records/);
+    assert.doesNotMatch(records, /1,200 b\b/);
+
+    const analysis = analysisOf(sampleJobDescription);
+    const resume = generateResume(sampleProfile, analysis, matchProfile(sampleProfile, analysis), null);
+    const bullets = resume.experience.flatMap((role) => role.bullets.map((bullet) => bullet.text));
+    assert.ok(bullets.length >= 4);
+    assert.ok(bullets.every((bullet) => bullet.startsWith("Accomplished ")));
+    assert.ok(bullets.every((bullet) => bullet.includes("as measured by") && bullet.includes("by doing")));
+    assert.ok(resume.lineEstimate <= MAX_RESUME_LINES);
   });
 });
 

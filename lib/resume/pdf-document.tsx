@@ -3,18 +3,18 @@ import type { ResumeDocument } from "./types";
 
 const styles = StyleSheet.create({
   page: {
-    paddingTop: 48,
-    paddingBottom: 48,
-    paddingHorizontal: 54,
+    paddingTop: 46,
+    paddingBottom: 46,
+    paddingHorizontal: 50,
     fontFamily: "Times-Roman",
     fontSize: 10.5,
     color: "#1c1917",
-    lineHeight: 1.35,
+    lineHeight: 1.3,
   },
   name: {
     fontSize: 18,
     textAlign: "center",
-    fontFamily: "Times-Roman",
+    fontFamily: "Times-Bold",
   },
   headline: {
     marginTop: 3,
@@ -24,44 +24,68 @@ const styles = StyleSheet.create({
   },
   contact: {
     marginTop: 3,
-    fontSize: 9.5,
+    fontSize: 9,
     textAlign: "center",
     color: "#57534e",
   },
   section: {
-    marginTop: 11,
+    marginTop: 12,
   },
   sectionTitle: {
     fontSize: 10,
-    letterSpacing: 1.2,
+    letterSpacing: 1.4,
     textTransform: "uppercase",
-    borderBottomWidth: 0.6,
-    borderBottomColor: "#a8a29e",
+    borderBottomWidth: 0.8,
+    borderBottomColor: "#78716c",
     paddingBottom: 2,
-    marginBottom: 4,
+    marginBottom: 5,
     fontFamily: "Times-Bold",
   },
   body: {
     fontSize: 10.5,
+    textAlign: "justify",
+  },
+  role: {
+    marginTop: 7,
+  },
+  roleHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-end",
   },
   roleTitle: {
-    marginTop: 6,
     fontFamily: "Times-Bold",
     fontSize: 11,
+    maxWidth: "78%",
   },
-  roleMeta: {
+  roleDates: {
     fontSize: 10,
     color: "#44403c",
   },
-  bullet: {
+  roleMeta: {
+    marginTop: 1,
+    fontSize: 10,
+    fontFamily: "Times-Italic",
+    color: "#44403c",
+  },
+  bulletRow: {
+    flexDirection: "row",
     marginTop: 2,
-    paddingLeft: 8,
+  },
+  bulletMark: {
+    width: 12,
     fontSize: 10.5,
+  },
+  bullet: {
+    flexGrow: 1,
+    flexShrink: 1,
+    fontSize: 10.5,
+    textAlign: "justify",
   },
 });
 
 export function ResumePdf({ resume }: { resume: ResumeDocument }) {
-  const skills = resume.skills.map((skill) => skill.text).join(", ");
+  const skills = resume.skills.map((skill) => skill.text).join(" · ");
   return (
     <Document title={resume.name ? `${resume.name} resume` : "Resume"} author={resume.name}>
       <Page size="LETTER" style={styles.page}>
@@ -87,15 +111,19 @@ export function ResumePdf({ resume }: { resume: ResumeDocument }) {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Experience</Text>
             {resume.experience.map((role) => (
-              <View key={`${role.employer}-${role.title}-${role.dates}`}>
-                <Text style={styles.roleTitle}>{role.title}</Text>
+              <View key={`${role.employer}-${role.title}-${role.dates}`} style={styles.role}>
+                <View style={styles.roleHeader}>
+                  <Text style={styles.roleTitle}>{role.title}</Text>
+                  {role.dates ? <Text style={styles.roleDates}>{role.dates}</Text> : null}
+                </View>
                 <Text style={styles.roleMeta}>
-                  {[role.employer, role.location, role.dates].filter(Boolean).join(" · ")}
+                  {[role.employer, role.location].filter(Boolean).join(" · ")}
                 </Text>
                 {role.bullets.map((bullet) => (
-                  <Text key={bullet.text} style={styles.bullet}>
-                    • {bullet.text}
-                  </Text>
+                  <View key={bullet.text} style={styles.bulletRow}>
+                    <Text style={styles.bulletMark}>•</Text>
+                    <Text style={styles.bullet}>{bullet.text}</Text>
+                  </View>
                 ))}
               </View>
             ))}
@@ -106,9 +134,13 @@ export function ResumePdf({ resume }: { resume: ResumeDocument }) {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Education</Text>
             {resume.education.map((item) => (
-              <Text key={item.text} style={styles.body}>
-                {item.text}
-              </Text>
+              <View key={item.text} style={styles.role}>
+                <View style={styles.roleHeader}>
+                  <Text style={styles.roleTitle}>{item.degree}</Text>
+                  {item.dates ? <Text style={styles.roleDates}>{item.dates}</Text> : null}
+                </View>
+                {item.school ? <Text style={styles.roleMeta}>{item.school}</Text> : null}
+              </View>
             ))}
           </View>
         ) : null}

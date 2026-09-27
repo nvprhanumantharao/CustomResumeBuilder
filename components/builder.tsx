@@ -23,7 +23,7 @@ const STEPS = [
   { id: 0, label: "Profile", hint: "Source facts" },
   { id: 1, label: "Job", hint: "The posting" },
   { id: 2, label: "Match", hint: "Evidence and gaps" },
-  { id: 3, label: "Resume", hint: "One page" },
+  { id: 3, label: "Resume", hint: "Two pages" },
 ] as const;
 
 type Busy = null | "parse" | "analyze" | "generate" | "pdf" | "docx";
@@ -31,6 +31,16 @@ type Busy = null | "parse" | "analyze" | "generate" | "pdf" | "docx";
 async function readError(response: Response): Promise<string> {
   const payload = (await response.json().catch(() => null)) as { error?: string } | null;
   return payload?.error || "The request failed.";
+}
+
+function coverageLine(
+  coverage: { matched: number; total: number } | undefined,
+  label: string,
+  bar: string,
+): string {
+  if (!coverage || coverage.total === 0) return `${label}: none listed`;
+  const percent = Math.round((100 * coverage.matched) / coverage.total);
+  return `${label} ${coverage.matched} of ${coverage.total} (${percent}%, bar ${bar})`;
 }
 
 export function Builder() {
@@ -322,11 +332,11 @@ export function Builder() {
       <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div className="max-w-2xl">
           <p className="text-xs font-medium tracking-[0.16em] text-primary uppercase">Phase 1</p>
-          <h1 className="mt-1 font-serif text-3xl tracking-tight sm:text-4xl">CustomResumeBuiler1</h1>
+          <h1 className="mt-1 font-serif text-3xl tracking-tight sm:text-4xl">CustomResumeBuilder</h1>
           <p className="mt-2 text-sm leading-6 text-muted-foreground sm:text-base">
-            Turn a master resume and a job description into a one-page ATS resume. Lines are
-            selected from your profile. Employers, skills, and metrics that are not in the profile
-            are dropped.
+            Turn a master resume and a job description into a two-page ATS resume. Accomplishments
+            use Accomplished X as measured by Y by doing Z. Employers, skills, and metrics that are
+            not in the profile are dropped.
           </p>
         </div>
         <Button type="button" variant="outline" onClick={resetAll}>
@@ -596,8 +606,17 @@ export function Builder() {
                       <p className="text-xs tracking-wide text-muted-foreground uppercase">Match score</p>
                       <p className="font-serif text-5xl tracking-tight">{match.score}</p>
                       <p className="text-sm text-muted-foreground">
-                        Share of required and preferred skills supported by profile evidence.
+                        {coverageLine(match.required, "Required", "above 50%")}
+                        {" · "}
+                        {coverageLine(match.preferred, "Preferred", "at least 25%")}
                       </p>
+                      {match.required && match.preferred ? (
+                        <p className="mt-1 text-sm text-muted-foreground">
+                          {match.qualified
+                            ? "Clears the bar: more than half of required qualifications and at least a quarter of preferred qualifications."
+                            : "Below the bar. Required qualifications need more than half matched, and preferred qualifications need at least a quarter matched."}
+                        </p>
+                      ) : null}
                     </div>
                     <div className="flex flex-wrap gap-2">
                       {analysis.requiredSkills.map((skill) => (
@@ -656,7 +675,7 @@ export function Builder() {
               )}
               {busy === "generate" ? (
                 <p role="status" className="text-sm text-muted-foreground">
-                  Selecting lines, checking facts, and fitting one page…
+                  Selecting lines, checking facts, and fitting two pages…
                 </p>
               ) : null}
               <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-between">
@@ -670,7 +689,7 @@ export function Builder() {
                   data-testid="build-resume"
                 >
                   {busy === "generate" ? <LoaderCircle className="animate-spin" /> : null}
-                  Build one-page resume
+                  Build two-page resume
                 </Button>
               </div>
             </CardContent>
@@ -697,8 +716,8 @@ export function Builder() {
                   <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <p className="text-sm text-muted-foreground">
                       {resume.lineEstimate <= 40
-                        ? "Preview fits a single US Letter page."
-                        : "Preview may run past one page."}
+                        ? "Preview is about one page. A fuller profile fills the second page."
+                        : `Preview is about ${Math.max(2, Math.ceil(resume.lineEstimate / 40))} pages.`}
                       {resume.trimmedBullets > 0
                         ? ` ${resume.trimmedBullets} lower-scoring bullets were trimmed.`
                         : ""}

@@ -172,7 +172,7 @@ export async function rewriteWithModel(
   const gaps = match.gaps.map((gap) => gap.requirement);
   const parsed = await structured(
     rewriteSchema,
-    "Rewrite resume lines using only the supplied evidence catalog. Every line must include the evidence ids that support it. You may reword and select. You must not invent employers, skills, technologies, certifications, accomplishments, or metrics. Do not introduce a number, percent, or tool that is absent from the cited quotes. Do not mention the listed job gaps. If a point cannot be supported, omit it.",
+    "Rewrite resume lines using only the supplied evidence catalog. Every line must include the evidence ids that support it. Write each accomplishment as: Accomplished [X] as measured by [Y] by doing [Z]. Copy X, Y, and Z from the cited quotes. You may reword and select. You must not invent employers, skills, technologies, certifications, accomplishments, or metrics. Do not introduce a number, percent, or tool that is absent from the cited quotes. Do not mention the listed job gaps. If a point cannot be supported, omit it.",
     JSON.stringify({
       job: {
         title: analysis.title,

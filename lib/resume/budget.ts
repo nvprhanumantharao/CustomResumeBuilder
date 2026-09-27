@@ -1,6 +1,9 @@
 import type { ResumeDocument } from "./types";
 
-const MAX_LINES = 40;
+/** About one US Letter page at the preview line width. */
+const LINES_PER_PAGE = 40;
+/** Keep two pages. Trim only after a third page of evidence. */
+export const MAX_RESUME_LINES = LINES_PER_PAGE * 3;
 const CHARS_PER_LINE = 90;
 
 function textLines(text: string): number {
@@ -28,7 +31,7 @@ export function fitResume(resume: ResumeDocument): ResumeDocument {
   const next: ResumeDocument = structuredClone(resume);
   let trimmed = 0;
 
-  const tooLong = () => estimateLines(next) > MAX_LINES;
+  const tooLong = () => estimateLines(next) > MAX_RESUME_LINES;
 
   while (tooLong()) {
     let roleIndex = -1;

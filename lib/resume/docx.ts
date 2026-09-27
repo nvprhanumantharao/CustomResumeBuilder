@@ -3,17 +3,19 @@ import {
   Document,
   Packer,
   Paragraph,
+  TabStopType,
   TextRun,
 } from "docx";
 import type { ResumeDocument } from "./types";
 
 const font = "Times New Roman";
+const contentWidth = 12240 - 864 - 864;
 
 function sectionTitle(text: string): Paragraph {
   return new Paragraph({
-    spacing: { before: 200, after: 60 },
+    spacing: { before: 240, after: 60 },
     border: {
-      bottom: { color: "A8A29E", space: 1, style: "single", size: 6 },
+      bottom: { color: "78716C", space: 1, style: "single", size: 8 },
     },
     children: [
       new TextRun({
@@ -21,24 +23,46 @@ function sectionTitle(text: string): Paragraph {
         bold: true,
         font,
         size: 20,
-        characterSpacing: 80,
+        characterSpacing: 120,
       }),
     ],
   });
 }
 
-function body(text: string, options?: { bold?: boolean; after?: number; center?: boolean }): Paragraph {
+function prose(text: string, after = 60): Paragraph {
   return new Paragraph({
-    alignment: options?.center ? AlignmentType.CENTER : AlignmentType.LEFT,
-    spacing: { after: options?.after ?? 40 },
-    children: [
-      new TextRun({
-        text,
-        bold: options?.bold,
-        font,
-        size: options?.bold ? 22 : 21,
-      }),
-    ],
+    alignment: AlignmentType.JUSTIFIED,
+    spacing: { after },
+    children: [new TextRun({ text, font, size: 21 })],
+  });
+}
+
+function splitLine(left: string, right: string, options?: { bold?: boolean; italic?: boolean; after?: number }): Paragraph {
+  const children = [
+    new TextRun({
+      text: left,
+      bold: options?.bold,
+      italics: options?.italic,
+      font,
+      size: options?.bold ? 22 : 21,
+    }),
+  ];
+  if (right) {
+    children.push(new TextRun({ text: `\t${right}`, font, size: 21 }));
+  }
+  return new Paragraph({
+    tabStops: [{ type: TabStopType.RIGHT, position: contentWidth }],
+    spacing: { before: options?.bold ? 120 : 0, after: options?.after ?? 0 },
+    children,
+  });
+}
+
+function bullet(text: string): Paragraph {
+  return new Paragraph({
+    alignment: AlignmentType.JUSTIFIED,
+    indent: { left: 280, hanging: 180 },
+    spacing: { after: 40 },
+    children: [new TextRun({ text: `•  ${text}`, font, size: 21 })],
   });
 }
 
@@ -51,31 +75,47 @@ export async function renderResumeDocx(resume: ResumeDocument): Promise<Buffer> 
     }),
   ];
 
-  if (resume.headline) children.push(body(resume.headline, { center: true, after: 20 }));
-  if (resume.contactLine) children.push(body(resume.contactLine, { center: true, after: 80 }));
+  if (resume.headline) {
+    children.push(
+      new Paragraph({
+        alignment: AlignmentType.CENTER,
+        spacing: { after: 20 },
+        children: [new TextRun({ text: resume.headline, font, size: 22 })],
+      }),
+    );
+  }
+  if (resume.contactLine) {
+    children.push(
+      new Paragraph({
+        alignment: AlignmentType.CENTER,
+        spacing: { after: 80 },
+        children: [new TextRun({ text: resume.contactLine, font, size: 18, color: "57534E" })],
+      }),
+    );
+  }
   if (resume.summary.text) {
     children.push(sectionTitle("Summary"));
-    children.push(body(resume.summary.text, { after: 60 }));
+    children.push(prose(resume.summary.text));
   }
   if (resume.skills.length > 0) {
     children.push(sectionTitle("Skills"));
-    children.push(body(resume.skills.map((skill) => skill.text).join(", "), { after: 60 }));
+    children.push(prose(resume.skills.map((skill) => skill.text).join(" · ")));
   }
   if (resume.experience.length > 0) {
     children.push(sectionTitle("Experience"));
     for (const role of resume.experience) {
-      children.push(body(role.title, { bold: true, after: 0 }));
-      children.push(
-        body([role.employer, role.location, role.dates].filter(Boolean).join(" · "), { after: 40 }),
-      );
-      for (const bullet of role.bullets) {
-        children.push(body(`• ${bullet.text}`, { after: 40 }));
-      }
+      children.push(splitLine(role.title, role.dates, { bold: true }));
+      const meta = [role.employer, role.location].filter(Boolean).join(" · ");
+      if (meta) children.push(splitLine(meta, "", { italic: true, after: 40 }));
+      for (const item of role.bullets) children.push(bullet(item.text));
     }
   }
   if (resume.education.length > 0) {
     children.push(sectionTitle("Education"));
-    for (const item of resume.education) children.push(body(item.text));
+    for (const item of resume.education) {
+      children.push(splitLine(item.degree, item.dates, { bold: true }));
+      if (item.school) children.push(splitLine(item.school, "", { italic: true, after: 40 }));
+    }
   }
 
   const document = new Document({

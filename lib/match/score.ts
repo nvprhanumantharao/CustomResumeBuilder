@@ -12,10 +12,29 @@ export interface ScoredEvidence {
   matchedTerms: string[];
 }
 
+export interface SkillCoverage {
+  matched: number;
+  total: number;
+}
+
 export interface MatchResult {
   score: number;
   evidence: ScoredEvidence[];
   gaps: JdGap[];
+  required: SkillCoverage;
+  preferred: SkillCoverage;
+  /** Required coverage is above 50% and preferred coverage is at least 25%. */
+  qualified: boolean;
+}
+
+/** Required qualifications must match more than half of the list. */
+export function requiredClearsBar(coverage: SkillCoverage): boolean {
+  return coverage.total === 0 || coverage.matched * 2 > coverage.total;
+}
+
+/** Preferred qualifications must match at least a quarter of the list. */
+export function preferredClearsBar(coverage: SkillCoverage): boolean {
+  return coverage.total === 0 || coverage.matched * 4 >= coverage.total;
 }
 
 function covered(term: string, corpus: string): boolean {
@@ -95,17 +114,27 @@ export function matchProfile(profile: CareerProfile, analysis: JdAnalysis): Matc
     };
   });
 
-  const denominator =
-    analysis.requiredSkills.length * 2 + analysis.preferredSkills.length;
-  const numerator =
-    analysis.requiredSkills.filter((skill) => coveredRequired.has(compactTerm(skill))).length * 2 +
-    analysis.preferredSkills.filter((skill) => coveredPreferred.has(compactTerm(skill))).length;
+  const required: SkillCoverage = {
+    matched: analysis.requiredSkills.filter((skill) => coveredRequired.has(compactTerm(skill))).length,
+    total: analysis.requiredSkills.length,
+  };
+  const preferred: SkillCoverage = {
+    matched: analysis.preferredSkills.filter((skill) => coveredPreferred.has(compactTerm(skill))).length,
+    total: analysis.preferredSkills.length,
+  };
+  const denominator = required.total * 2 + preferred.total;
+  const numerator = required.matched * 2 + preferred.matched;
   const score = denominator === 0 ? 0 : Math.round((100 * numerator) / denominator);
+  const qualified =
+    denominator > 0 && requiredClearsBar(required) && preferredClearsBar(preferred);
 
   return {
     score,
     evidence: scored.sort((a, b) => b.score - a.score || a.label.localeCompare(b.label)),
     gaps,
+    required,
+    preferred,
+    qualified,
   };
 }
 

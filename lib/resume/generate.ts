@@ -12,6 +12,7 @@ import type { CareerProfile, Skill } from "../profile/types";
 import { CONTACT_ID, SUMMARY_ID } from "../profile/types";
 import { clipSentences, sameTerm, termMentioned } from "../text";
 import { fitResume } from "./budget";
+import { accomplishmentXyz } from "./xyz";
 import type { GeneratorMode, ResumeDocument, ResumeEducation, ResumeRole, RewriteDraft } from "./types";
 import {
   createValidationContext,
@@ -159,11 +160,11 @@ export function generateResume(
             reason,
             evidenceIds: replacement.evidenceIds,
           });
-        } else {
-          text = replacement.text.trim();
-          evidenceIds = replacement.evidenceIds;
         }
       }
+      const xyz = accomplishmentXyz(original);
+      const xyzReason = explainLineRejection(xyz, [achievement.id], ctx);
+      if (!xyzReason) text = xyz;
       const reason = explainLineRejection(text, evidenceIds, ctx);
       if (reason) {
         dropped.push({ text, reason, evidenceIds });
@@ -203,8 +204,12 @@ export function generateResume(
     );
     const role = experience.find((item) => item.evidenceIds[0] === job?.id);
     if (!role) continue;
+    const extraXyz = accomplishmentXyz(extra.text.trim());
+    const extraText = explainLineRejection(extraXyz, extra.evidenceIds, ctx)
+      ? extra.text.trim()
+      : extraXyz;
     role.bullets.push({
-      text: extra.text.trim(),
+      text: extraText,
       evidenceIds: extra.evidenceIds,
       score: Math.max(...extra.evidenceIds.map((id) => scoreFor(match, id)), 0),
     });

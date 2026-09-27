@@ -18,9 +18,9 @@ const sourceSerif = Source_Serif_4({
 });
 
 export const metadata: Metadata = {
-  title: "CustomResumeBuiler1",
+  title: "CustomResumeBuilder",
   description:
-    "Build a one-page ATS resume from a master profile and a job description without inventing facts.",
+    "Build a two-page ATS resume from a master profile and a job description without inventing facts.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
