@@ -78,6 +78,11 @@ function ScoreExplanation({ match }: { match: MatchResult }) {
           Required counts double. ({required.matched}×2 + {preferred.matched}) / ({required.total}×2 + {preferred.total}) = {match.score}.
         </p>
       ) : null}
+      {match.subScores ? (
+        <p className="text-sm text-muted-foreground">
+          Experience {match.subScores.experienceMatch} · Domain {match.subScores.domainMatch}
+        </p>
+      ) : null}
       <p className="text-sm text-muted-foreground">{bar}</p>
     </div>
   );

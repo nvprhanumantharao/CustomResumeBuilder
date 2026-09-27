@@ -159,20 +159,32 @@ export async function analyzeWithModel(text: string): Promise<JdAnalysis | null>
   return parsed;
 }
 
+export interface RewriteHints {
+  /** Prefer these evidence ids. The full catalog is used when this is empty. */
+  evidenceIds?: string[];
+  /** Lines a previous draft wrote that were not supported by the evidence. */
+  rejectedClaims?: string[];
+}
+
 export async function rewriteWithModel(
   profile: CareerProfile,
   analysis: JdAnalysis,
   match: MatchResult,
+  hints?: RewriteHints,
 ): Promise<RewriteDraft | null> {
   const catalog = collectEvidence(profile).map((item) => ({
     id: item.id,
     kind: item.kind,
     quote: item.quote,
   }));
+  const preferredIds = new Set((hints?.evidenceIds ?? []).filter(Boolean));
+  const focused = preferredIds.size > 0 ? catalog.filter((item) => preferredIds.has(item.id)) : [];
+  const evidence = focused.length > 0 ? focused : catalog;
   const gaps = match.gaps.map((gap) => gap.requirement);
+  const rejectedClaims = (hints?.rejectedClaims ?? []).map((claim) => claim.trim()).filter(Boolean);
   const parsed = await structured(
     rewriteSchema,
-    "Rewrite resume lines using only the supplied evidence catalog. Every line must include the evidence ids that support it. Write each accomplishment as: Accomplished [X] as measured by [Y] by doing [Z]. Copy X, Y, and Z from the cited quotes. You may reword and select. You must not invent employers, skills, technologies, certifications, accomplishments, or metrics. Do not introduce a number, percent, or tool that is absent from the cited quotes. Do not mention the listed job gaps. If a point cannot be supported, omit it.",
+    "Rewrite resume lines using only the supplied evidence catalog. Every line must include the evidence ids that support it. Write each accomplishment as: Accomplished [X] as measured by [Y] by doing [Z]. Copy X, Y, and Z from the cited quotes. You may reword and select. You must not invent employers, skills, technologies, certifications, accomplishments, or metrics. Do not introduce a number, percent, or tool that is absent from the cited quotes. Do not mention the listed job gaps. If rejected claims are listed, do not repeat them. If a point cannot be supported, omit it.",
     JSON.stringify({
       job: {
         title: analysis.title,
@@ -181,7 +193,8 @@ export async function rewriteWithModel(
         responsibilities: analysis.responsibilities,
       },
       gaps,
-      evidence: catalog,
+      rejectedClaims,
+      evidence,
     }),
   );
   return parsed;

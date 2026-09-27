@@ -6,3 +6,4 @@ coverage
 *.tsbuildinfo
 next-env.d.ts
 .env*
+.embeddings-cache

@@ -17,6 +17,15 @@ export interface SkillCoverage {
   total: number;
 }
 
+export interface MatchSubScores {
+  overallScore: number;
+  skillsMatch: number;
+  experienceMatch: number;
+  domainMatch: number;
+  matchedRequirements: string[];
+  missingRequirements: string[];
+}
+
 export interface MatchResult {
   score: number;
   evidence: ScoredEvidence[];
@@ -25,6 +34,7 @@ export interface MatchResult {
   preferred: SkillCoverage;
   /** Required coverage is above 50% and preferred coverage is at least 25%. */
   qualified: boolean;
+  subScores: MatchSubScores;
 }
 
 /** Required qualifications must match more than half of the list. */
@@ -128,6 +138,26 @@ export function matchProfile(profile: CareerProfile, analysis: JdAnalysis): Matc
   const qualified =
     denominator > 0 && requiredClearsBar(required) && preferredClearsBar(preferred);
 
+  const experienceCorpus = evidence
+    .filter((item) => item.kind === "employment" || item.kind === "achievement")
+    .map((item) => item.quote)
+    .join("\n");
+  const requiredInExperience = analysis.requiredSkills.filter((skill) => covered(skill, experienceCorpus));
+  const experienceMatch =
+    analysis.requiredSkills.length === 0
+      ? 100
+      : Math.round((100 * requiredInExperience.length) / analysis.requiredSkills.length);
+  const meaningfulKeywords = analysis.keywords.filter((keyword) => keyword.length >= 4);
+  const domainHits = meaningfulKeywords.filter((keyword) => termMentioned(corpus, keyword));
+  const domainMatch =
+    meaningfulKeywords.length === 0
+      ? 100
+      : Math.round((100 * domainHits.length) / meaningfulKeywords.length);
+  const matchedRequirements = [
+    ...analysis.requiredSkills.filter((skill) => coveredRequired.has(compactTerm(skill))),
+    ...analysis.preferredSkills.filter((skill) => coveredPreferred.has(compactTerm(skill))),
+  ];
+
   return {
     score,
     evidence: scored.sort((a, b) => b.score - a.score || a.label.localeCompare(b.label)),
@@ -135,6 +165,14 @@ export function matchProfile(profile: CareerProfile, analysis: JdAnalysis): Matc
     required,
     preferred,
     qualified,
+    subScores: {
+      overallScore: score,
+      skillsMatch: score,
+      experienceMatch,
+      domainMatch,
+      matchedRequirements,
+      missingRequirements: gaps.map((gap) => gap.requirement),
+    },
   };
 }
 
