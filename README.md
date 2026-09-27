@@ -46,6 +46,10 @@ If the key is missing or a model call fails, the same flow continues on the heur
 | Draft storage | Browser `localStorage` |
 | Tests | Node.js test runner via `tsx` |
 
+## AI Technologies/Concepts
+
+CustomResumeBuilder uses a chat model and an embedding model through the Vercel AI SDK. By default those are OpenAI `gpt-4o-mini` and `text-embedding-3-small`, with Anthropic or Google available for reranking and semantic checks. The model returns structured JSON to parse a resume, read a job description, and rewrite lines. Retrieval splits the profile into evidence chunks, embeds them, caches the vectors locally, and ranks them with cosine similarity plus keyword overlap before an LLM reranker keeps the top matches. Rewrites must cite that evidence and use the XYZ accomplishment form. A rules-based checker then drops invented metrics, skills, and employers, and a second model pass can reject unsupported lines and request up to two new drafts. If no API key is set, the same flow continues with local heuristics. The match score, qualification bars, and ATS score are computed in code and do not call a model.
+
 ## Architecture
 
 The product architecture is in [docs/architecture.md](docs/architecture.md). The original one-page design is [docs/AI-Powered-Custom-Resume-Builder.pdf](docs/AI-Powered-Custom-Resume-Builder.pdf).
